@@ -1,0 +1,99 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: payments_postgres
+    environment:
+      POSTGRES_USER: payments_user
+      POSTGRES_PASSWORD: payments_password
+      POSTGRES_DB: payments_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payments_user -d payments_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payment_network
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: payments_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payment_network
+
+  migrate:
+    build: .
+    container_name: payments_migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://payments_user:payments_password@postgres:5432/payments_db
+    command: ["-m", "alembic", "upgrade", "head"]
+    networks:
+      - payment_network
+
+  api:
+    build: .
+    container_name: payments_api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    environment:
+      API_KEY: test-api-key-change-in-prod
+      DATABASE_URL: postgresql+asyncpg://payments_user:payments_password@postgres:5432/payments_db
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672/
+      OUTBOX_POLL_INTERVAL_S: "0.5"
+      OUTBOX_BATCH_SIZE: "100"
+    command: ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    networks:
+      - payment_network
+
+  worker:
+    build: .
+    container_name: payments_worker
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      API_KEY: test-api-key-change-in-prod
+      DATABASE_URL: postgresql+asyncpg://payments_user:payments_password@postgres:5432/payments_db
+      RABBIT_URL: amqp://guest:guest@rabbitmq:5672/
+      OUTBOX_POLL_INTERVAL_S: "0.5"
+      OUTBOX_BATCH_SIZE: "100"
+      GATEWAY_SUCCESS_RATE: "0.9"
+      CONSUMER_PREFETCH_COUNT: "1"
+      WEBHOOK_TIMEOUT_S: "5.0"
+    command: ["-m", "app.worker"]
+    networks:
+      - payment_network
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  payment_network:
+    driver: bridge

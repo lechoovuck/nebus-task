@@ -1,0 +1,22 @@
+version: "3"
+
+tasks:
+  build:
+    desc: Build docker images
+    cmds:
+      - docker compose build
+
+  migrate:
+    desc: Run alembic migrations
+    cmds:
+      - docker compose run --rm migrate
+
+  run:
+    desc: Start postgres, rabbitmq, api, worker
+    cmds:
+      - docker compose up
+
+  remove:
+    desc: Stop everything and drop volumes
+    cmds:
+      - docker compose down
