@@ -48,7 +48,7 @@ class Payment(Base):
     webhook_last_error = Column(Text)
 
     __table_args__ = (
-        CheckConstraint("amount > 0", name="payments_amount_positve"),
+        CheckConstraint("amount > 0", name="payments_amount_positive"),
         CheckConstraint(f"currency IN ({_in_sql(CURRENCIES)})", name="payments_currency_valid"),
         CheckConstraint(f"status IN ({_in_sql(STATUSES)})", name="payments_status_valid"),
     )
