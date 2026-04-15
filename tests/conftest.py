@@ -4,13 +4,14 @@ from typing import AsyncGenerator
 
 import pytest
 from httpx import AsyncClient, ASGITransport
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from testcontainers.postgres import PostgresContainer
 from testcontainers.rabbitmq import RabbitMqContainer
 
 from app.db import get_session
 from app.main import app
-from app.models import Base
+from app.models import Base, Outbox, Payment
 
 
 @pytest.fixture(scope="session")
@@ -67,3 +68,11 @@ def client(async_session) -> AsyncClient:
 
     app.dependency_overrides[get_session] = _override
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
+@pytest.fixture(autouse=True)
+async def clear_database(async_session):
+    await async_session.execute(delete(Outbox))
+    await async_session.execute(delete(Payment))
+    await async_session.commit()
+    yield
