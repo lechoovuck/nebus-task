@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 class PaymentCreateIn(BaseModel):
     amount: Decimal = Field(gt=0, max_digits=18, decimal_places=4)
     currency: Literal["RUB", "USD", "EUR"]
-    description: str | None = Field(default=None, max_length=1000)
+    description: str | None = Field(default=None, max_length=500)
     metadata: dict[str, Any] = Field(default_factory=dict)
     webhook_url: HttpUrl
 
