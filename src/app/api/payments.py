@@ -21,7 +21,7 @@ router = APIRouter(prefix="/api/v1", tags=["payments"])
 )
 async def create_payment(
     body: PaymentCreateIn,
-    idempotency_key: str = Header(...),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
     session: AsyncSession = Depends(get_session),
     _: None = Depends(verify_api_key),
 ) -> PaymentCreateOut:
