@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+import aio_pika
 from faststream import Context
 from faststream.rabbit import RabbitBroker, RabbitMessage, RabbitQueue
 from sqlalchemy import select, update
@@ -136,3 +137,42 @@ def main_queue() -> RabbitQueue:
             "x-dead-letter-routing-key": DLQ,
         },
     )
+
+
+async def declare_topology(rabbit_url: str) -> None:
+    connection = await aio_pika.connect_robust(rabbit_url)
+    try:
+        channel = await connection.channel()
+
+        main_ex = await channel.declare_exchange(
+            MAIN_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
+        )
+        dlx_ex = await channel.declare_exchange(
+            DLX_EXCHANGE, aio_pika.ExchangeType.DIRECT, durable=True
+        )
+
+        main_q = await channel.declare_queue(
+            MAIN_QUEUE,
+            durable=True,
+            arguments={
+                "x-dead-letter-exchange": DLX_EXCHANGE,
+                "x-dead-letter-routing-key": DLQ,
+            },
+        )
+        await main_q.bind(main_ex, routing_key=MAIN_QUEUE)
+
+        for name, ttl in ((RETRY_5S_QUEUE, 5000), (RETRY_15S_QUEUE, 15000)):
+            await channel.declare_queue(
+                name,
+                durable=True,
+                arguments={
+                    "x-message-ttl": ttl,
+                    "x-dead-letter-exchange": MAIN_EXCHANGE,
+                    "x-dead-letter-routing-key": MAIN_QUEUE,
+                },
+            )
+
+        dlq_q = await channel.declare_queue(DLQ, durable=True)
+        await dlq_q.bind(dlx_ex, routing_key=DLQ)
+    finally:
+        await connection.close()

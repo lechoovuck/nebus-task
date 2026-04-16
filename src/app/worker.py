@@ -4,7 +4,7 @@ import logging
 from faststream.rabbit import Channel, RabbitBroker
 
 from app.config import get_settings
-from app.services.consumer import PaymentConsumer, main_queue
+from app.services.consumer import PaymentConsumer, declare_topology, main_queue
 from app.services.outbox_relay import OutboxRelay
 
 logging.basicConfig(
@@ -16,6 +16,8 @@ log = logging.getLogger("worker")
 
 async def main() -> None:
     settings = get_settings()
+
+    await declare_topology(settings.rabbit_url)
 
     broker = RabbitBroker(settings.rabbit_url)
     consumer = PaymentConsumer(broker)
