@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     outbox_poll_interval_s: float = 0.5
     outbox_batch_size: int = 100
     retry_delays_s: tuple[int, int] = (5, 15)
-    gateway_success_rate: float = 0.95
+    gateway_success_rate: float = 0.9
     consumer_prefetch_count: int = 1
     webhook_timeout_s: float = 5.0
 
