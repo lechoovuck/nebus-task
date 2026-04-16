@@ -23,8 +23,8 @@ class OutboxRelay:
         while True:
             try:
                 await self.publish_unpublished_events()
-            except Exception as e:
-                log.error("outbox relay iteration failed: %s", e)
+            except Exception:
+                log.exception("outbox relay iteration failed")
             await asyncio.sleep(self.settings.outbox_poll_interval_s)
 
     async def publish_unpublished_events(self) -> None:
